@@ -1,0 +1,33 @@
+ollama:
+  base_url: "http://127.0.0.1:11434"
+
+models:
+  text_primary:
+    name: "qwen2.5:7b"
+    role: "text"
+    keep_alive: "30m"
+    priority: 100
+    unload_after_use: false
+
+  vision_ocr:
+    name: "qwen2.5vl:3b"
+    role: "vision"
+    keep_alive: 0
+    priority: 20
+    unload_after_use: true
+
+policy:
+  # Conservative. Prevents VRAM fragmentation and CPU fallback.
+  single_model_mode: true
+
+  # Always protect the text model.
+  preferred_resident_model: "qwen2.5:7b"
+
+  # If vision model runs, unload it immediately after screenshot OCR or translation.
+  evict_vision_after_job: true
+
+  # Optional safety check.
+  min_free_vram_mb_before_load: 1500
+
+  # Use nvidia-smi when available.
+  check_vram: true

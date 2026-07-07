@@ -71,7 +71,8 @@ class OllamaSwapper:
 
     def get_free_vram_mb(self) -> Optional[int]:
         """
-        Returns free VRAM in MB for GPU 0. If nvidia-smi is unavailable, returns None.
+        Returns total free VRAM across all GPUs in MB.
+        If nvidia-smi is unavailable, returns None.
         """
         try:
             out = subprocess.check_output(
@@ -83,7 +84,7 @@ class OllamaSwapper:
                 text=True
             )
             values = [int(x.strip()) for x in out.splitlines() if x.strip()]
-            return values[0] if values else None
+            return sum(values) if values else None
         except Exception:
             return None
 
@@ -96,6 +97,7 @@ class OllamaSwapper:
     async def ensure_model(self, model_key: str) -> str:
         """
         Central model swap function.
+        Checks VRAM before loading if policy.check_vram is enabled.
         """
         target = self.model_name(model_key)
         keep_alive = self.models[model_key].get("keep_alive", "30m")
@@ -106,6 +108,15 @@ class OllamaSwapper:
 
             loaded = await self.loaded_models()
             if target not in loaded:
+                # VRAM safety check before loading
+                if self.policy.get("check_vram", False):
+                    free = self.get_free_vram_mb()
+                    min_req = self.policy.get("min_free_vram_mb_before_load", 0)
+                    if free is not None and free < min_req:
+                        raise RuntimeError(
+                            f"VRAM too low to load {target}: "
+                            f"{free}MB free, need {min_req}MB"
+                        )
                 await self.load_model(target, keep_alive=keep_alive)
 
             return target
